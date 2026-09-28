@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+dist/
+build/
+*.egg-info/
+
+# Local data, checkpoints, and evaluation artifacts
+assets/
+checkpoints/
+logs/
+wandb/
+*.log
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+*.npy
+*.npz
+*.mp4

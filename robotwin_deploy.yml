@@ -1,0 +1,10 @@
+policy_name: actionunet
+task_name: null
+task_config: null
+ckpt_setting: null
+seed: 0
+instruction_type: unseen
+
+host: 127.0.0.1
+port: 8000
+action_chunk: 50
