@@ -258,6 +258,8 @@ uv run python -m actionunet.train pi05_aloha \
 
 This is the official **2-GPU, global batch size 64** setup. Each GPU receives a local batch size of 32.
 
+> **Training-budget note:** On most RoboTwin tasks, training has not converged after 8,000 optimization steps. Because of time and compute constraints, the paper uses the same 8,000-step training budget for every compared method to ensure a fair comparison. The reported results should therefore be interpreted as fixed-budget results rather than converged performance.
+
 ```bash
 cd "$ACTIONUNET_ROOT"
 export TASK="move_can_pot"
