@@ -390,6 +390,13 @@ export LIBERO_PLUS_VENV="/absolute/path/to/venvs/libero-plus"
 
 git clone https://github.com/sylvestf/LIBERO-plus.git "$LIBERO_PLUS_ROOT"
 
+sudo apt-get update
+sudo apt-get install -y \
+  libexpat1 \
+  libfontconfig1-dev \
+  libpython3-stdlib \
+  libmagickwand-dev
+
 python3.8 -m venv "$LIBERO_PLUS_VENV"
 source "$LIBERO_PLUS_VENV/bin/activate"
 
@@ -398,6 +405,8 @@ pip install -r "$LIBERO_PLUS_ROOT/extra_requirements.txt"
 pip install -e "$LIBERO_PLUS_ROOT"
 pip install -e "$ACTIONUNET_ROOT/packages/openpi-client"
 pip install 'tyro==0.9.2' 'imageio==2.35.1' 'imageio-ffmpeg==0.5.1'
+
+python -c 'from wand.image import Image; import libero.libero; print("LIBERO-Plus imports OK")'
 
 deactivate
 ```
