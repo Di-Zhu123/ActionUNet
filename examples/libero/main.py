@@ -50,7 +50,6 @@ class Args:
     num_steps_wait: int = 10
     num_trials_per_task: int = 50
     video_out_path: str = "data/libero/videos"
-    seed: int = 7
 
     # Queue-worker extensions used by run_parallel_eval.sh.
     job_db: Optional[str] = None
@@ -217,7 +216,7 @@ def eval_queue_worker(args: Args) -> None:
     env = None
     env_key = None
     completed = 0
-    np.random.seed(args.seed)
+    np.random.seed(eval_queue.EVAL_SEED)
     logging.info(
         "queue_worker_start worker=%s db=%s host=%s port=%s replan=%s max_steps_override=%s",
         args.worker_id,
@@ -251,7 +250,9 @@ def eval_queue_worker(args: Args) -> None:
                 if env is None or requested_env_key != env_key:
                     if env is not None:
                         env.close()
-                    env, description = _get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed, args.soft_reset_env)
+                    env, description = _get_libero_env(
+                        task, LIBERO_ENV_RESOLUTION, eval_queue.EVAL_SEED, args.soft_reset_env
+                    )
                     env_key = requested_env_key
                     if args.minimal_policy_observables:
                         _configure_minimal_observables(env)
@@ -297,7 +298,7 @@ def eval_libero(args: Args) -> None:
         eval_queue_worker(args)
         return
 
-    np.random.seed(args.seed)
+    np.random.seed(eval_queue.EVAL_SEED)
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[args.task_suite_name]()
     client = _websocket_client_policy.WebsocketClientPolicy(args.host, args.port)
@@ -306,7 +307,7 @@ def eval_libero(args: Args) -> None:
     for task_id in tqdm.tqdm(range(task_suite.n_tasks)):
         task = task_suite.get_task(task_id)
         initial_states = task_suite.get_task_init_states(task_id)
-        env, description = _get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed, args.soft_reset_env)
+        env, description = _get_libero_env(task, LIBERO_ENV_RESOLUTION, eval_queue.EVAL_SEED, args.soft_reset_env)
         if args.minimal_policy_observables:
             _configure_minimal_observables(env)
         try:

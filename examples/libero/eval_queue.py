@@ -17,6 +17,9 @@ from typing import Any, Dict, Optional
 SUITES = ("libero_10", "libero_goal", "libero_object", "libero_spatial")
 TASKS_PER_SUITE = 10
 TRIALS_PER_TASK = 50
+EVAL_SEED = 7
+
+
 def _job_specs(benchmark: str):
     if benchmark == "libero":
         yield from (
@@ -65,7 +68,7 @@ def connect(path: pathlib.Path) -> sqlite3.Connection:
     return connection
 
 
-def initialize(path: pathlib.Path, benchmark: str, seed: int) -> Dict[str, int]:
+def initialize(path: pathlib.Path, benchmark: str) -> Dict[str, int]:
     connection = connect(path)
     try:
         connection.executescript(
@@ -99,7 +102,7 @@ def initialize(path: pathlib.Path, benchmark: str, seed: int) -> Dict[str, int]:
             for row in connection.execute("SELECT key, value FROM metadata")
         }
         if existing:
-            if existing.get("benchmark") != benchmark or int(existing.get("seed", -1)) != seed:
+            if existing.get("benchmark") != benchmark or int(existing.get("seed", -1)) != EVAL_SEED:
                 raise RuntimeError(
                     "Existing queue contract differs: "
                     f"benchmark={existing.get('benchmark')} seed={existing.get('seed')}"
@@ -109,11 +112,11 @@ def initialize(path: pathlib.Path, benchmark: str, seed: int) -> Dict[str, int]:
             try:
                 connection.executemany(
                     "INSERT INTO metadata(key, value) VALUES (?, ?)",
-                    (("schema_version", "1"), ("benchmark", benchmark), ("seed", str(seed))),
+                    (("schema_version", "1"), ("benchmark", benchmark), ("seed", str(EVAL_SEED))),
                 )
                 connection.executemany(
                     "INSERT INTO jobs(suite, task_id, trial_id, seed) VALUES (?, ?, ?, ?)",
-                    ((suite, task_id, trial_id, seed) for suite, task_id, trial_id in _job_specs(benchmark)),
+                    ((suite, task_id, trial_id, EVAL_SEED) for suite, task_id, trial_id in _job_specs(benchmark)),
                 )
                 connection.execute("COMMIT")
             except BaseException:
@@ -317,7 +320,6 @@ def main() -> None:
 
     init_parser = subparsers.add_parser("init")
     init_parser.add_argument("--db", type=pathlib.Path, required=True)
-    init_parser.add_argument("--seed", type=int, required=True)
     init_parser.add_argument("--benchmark", choices=("libero", "libero-plus"), required=True)
 
     progress_parser = subparsers.add_parser("progress")
@@ -355,7 +357,7 @@ def main() -> None:
 
     args = parser.parse_args()
     if args.command == "init":
-        result = initialize(args.db, args.benchmark, args.seed)
+        result = initialize(args.db, args.benchmark)
         print("queue_initialized " + " ".join(f"{key}={value}" for key, value in result.items()))
     elif args.command == "progress":
         result = progress(args.db)

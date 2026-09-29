@@ -20,7 +20,6 @@ Optional arguments:
   --actionunet-root PATH        Repository root; defaults to this script's repo
   --output-dir PATH             Queue, logs, and summary directory
   --base-port PORT              First policy server port (default: 8000)
-  --seed SEED                   Evaluation seed (default: 7)
   --server-timeout SECONDS      Startup timeout per server (default: 300)
   --retry-errors                Requeue jobs previously marked error
   -h, --help                    Show this help
@@ -53,7 +52,6 @@ CLASSIFICATION=""
 ACTIONUNET_ROOT="$DEFAULT_ROOT"
 OUTPUT_DIR=""
 BASE_PORT=8000
-SEED=7
 SERVER_TIMEOUT=300
 RETRY_ERRORS=0
 
@@ -104,11 +102,6 @@ while (($#)); do
       BASE_PORT="$2"
       shift 2
       ;;
-    --seed)
-      (($# >= 2)) || die "--seed requires a value"
-      SEED="$2"
-      shift 2
-      ;;
     --server-timeout)
       (($# >= 2)) || die "--server-timeout requires a value"
       SERVER_TIMEOUT="$2"
@@ -140,7 +133,6 @@ done
 [[ -f "$CHECKPOINT/model.safetensors" ]] || die "missing $CHECKPOINT/model.safetensors"
 [[ -f "$CHECKPOINT/metadata.pt" ]] || die "missing $CHECKPOINT/metadata.pt"
 [[ "$BASE_PORT" =~ ^[0-9]+$ ]] || die "--base-port must be an integer"
-[[ "$SEED" =~ ^-?[0-9]+$ ]] || die "--seed must be an integer"
 [[ "$SERVER_TIMEOUT" =~ ^[0-9]+$ ]] || die "--server-timeout must be an integer"
 command -v uv >/dev/null 2>&1 || die "uv is not on PATH"
 
@@ -186,8 +178,7 @@ fi
 
 env "${QUEUE_ENV[@]}" "$SIM_PYTHON" "$QUEUE_SCRIPT" init \
   --db "$DATABASE" \
-  --benchmark "$BENCHMARK" \
-  --seed "$SEED"
+  --benchmark "$BENCHMARK"
 
 if ((RETRY_ERRORS)); then
   "$SIM_PYTHON" "$QUEUE_SCRIPT" requeue-errors --db "$DATABASE"
@@ -295,7 +286,6 @@ for index in "${!GPU_LIST[@]}"; do
       --args.job-db "$DATABASE" \
       --args.worker-id "$worker_id" \
       --args.no-save-videos \
-      --args.seed "$SEED" \
       >"$worker_log" 2>&1 &
   WORKER_PIDS+=("$!")
   echo "worker started: id=$worker_id gpu=$gpu port=$port"

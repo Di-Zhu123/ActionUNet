@@ -346,10 +346,10 @@ If training used an explicit `--asset-id`, pass the same `--asset-id` to the ser
 
 The same checkpoint trained only on LIBERO is evaluated on both benchmarks.
 
-| Benchmark | Evaluation | Seed | Training data |
-| --- | --- | ---: | --- |
-| LIBERO | 4 suites × 10 tasks × 50 episodes = 2,000 episodes | 7 | LIBERO only |
-| LIBERO-Plus | 10,030 perturbation cases × 1 episode | 7 | LIBERO only |
+| Benchmark | Evaluation | Training data |
+| --- | --- | --- |
+| LIBERO | 4 suites × 10 tasks × 50 episodes = 2,000 episodes | LIBERO only |
+| LIBERO-Plus | 10,030 perturbation cases × 1 episode | LIBERO only |
 
 ### 7.1 Create the standard LIBERO simulator environment
 
@@ -444,8 +444,7 @@ bash examples/libero/run_parallel_eval.sh \
   --sim-python "$LIBERO_VENV/bin/python" \
   --libero-config-path "$LIBERO_ROOT/.libero" \
   --output-dir "$ACTIONUNET_ROOT/eval/libero" \
-  --base-port 8000 \
-  --seed 7
+  --base-port 8000
 ```
 
 Outputs:
@@ -480,8 +479,7 @@ bash examples/libero/run_parallel_eval.sh \
   --libero-config-path "$LIBERO_PLUS_ROOT/.libero" \
   --classification "$LIBERO_PLUS_CLASSIFICATION" \
   --output-dir "$ACTIONUNET_ROOT/eval/libero-plus" \
-  --base-port 8100 \
-  --seed 7
+  --base-port 8100
 ```
 
 Outputs:
@@ -556,7 +554,6 @@ for MODE in demo_clean demo_randomized; do
     --task_name "$TASK" \
     --task_config "$MODE" \
     --ckpt_setting "${DATA_REPO}_step7999" \
-    --seed 0 \
     --host 127.0.0.1 \
     --port 8000 \
     --action_chunk 50
