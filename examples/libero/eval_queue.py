@@ -227,6 +227,23 @@ def requeue_worker(path: pathlib.Path, worker_id: str) -> int:
         connection.close()
 
 
+def requeue_errors(path: pathlib.Path) -> int:
+    connection = connect(path)
+    try:
+        return int(
+            connection.execute(
+                """
+                UPDATE jobs
+                SET status='pending', worker_id=NULL, claimed_at=NULL,
+                    completed_at=NULL, duration_s=NULL, success=NULL, error=NULL
+                WHERE status='error'
+                """
+            ).rowcount
+        )
+    finally:
+        connection.close()
+
+
 def progress_connection(connection: sqlite3.Connection) -> Dict[str, int]:
     counts = dict.fromkeys(("pending", "running", "done", "error"), 0)
     for row in connection.execute("SELECT status, COUNT(*) AS count FROM jobs GROUP BY status"):
@@ -315,6 +332,9 @@ def main() -> None:
     requeue_parser.add_argument("--db", type=pathlib.Path, required=True)
     requeue_parser.add_argument("--worker-id", required=True)
 
+    requeue_errors_parser = subparsers.add_parser("requeue-errors")
+    requeue_errors_parser.add_argument("--db", type=pathlib.Path, required=True)
+
     claim_parser = subparsers.add_parser("claim")
     claim_parser.add_argument("--db", type=pathlib.Path, required=True)
     claim_parser.add_argument("--worker-id", required=True)
@@ -347,6 +367,8 @@ def main() -> None:
         write_summary(args.db, args.output)
     elif args.command == "requeue-worker":
         print(f"requeued={requeue_worker(args.db, args.worker_id)} worker={args.worker_id}")
+    elif args.command == "requeue-errors":
+        print(f"requeued={requeue_errors(args.db)} status=error")
     elif args.command == "claim":
         print(json.dumps(claim(args.db, args.worker_id), sort_keys=True))
     elif args.command == "finish":

@@ -52,7 +52,7 @@ class Args:
     video_out_path: str = "data/libero/videos"
     seed: int = 7
 
-    # Queue-worker extensions used by run_libero_batched_queue_eval.py.
+    # Queue-worker extensions used by run_parallel_eval.sh.
     job_db: Optional[str] = None
     worker_id: str = "worker-0"
     no_save_videos: bool = False

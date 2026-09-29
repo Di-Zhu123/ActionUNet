@@ -12,7 +12,7 @@ ActionUNet fine-tunes a π0.5 vision-language-action model for LIBERO, LIBERO-Pl
 
 | Benchmark | GPUs | Global batch size | Batch size per GPU | Training steps |
 | --- | ---: | ---: | ---: | ---: |
-| LIBERO | **8** | **256** | 32 | 30,000 |
+| LIBERO | **8** | **256** | 32 | 40,000 |
 | RoboTwin | **2** | **64** | 32 | 8,000 |
 
 The exact training commands are in [Step 4: Train on LIBERO](#step-4-train-on-libero) and [Step 5: Train on RoboTwin](#step-5-train-on-robotwin). Do not change `--nproc-per-node` without also checking that the global batch size is divisible by the number of processes.
@@ -178,7 +178,7 @@ uv run torchrun \
   --base-weights "$BASE_WEIGHTS" \
   --checkpoint-root "$CHECKPOINT_ROOT" \
   --batch-size 256 \
-  --num-train-steps 30000 \
+  --num-train-steps 40000 \
   --save-interval 5000
 ```
 
@@ -305,7 +305,7 @@ Set the checkpoint to an existing step directory containing `model.safetensors` 
 
 ```bash
 cd "$ACTIONUNET_ROOT"
-export LIBERO_CHECKPOINT="$CHECKPOINT_ROOT/pi05_libero__actionunet/libero_actionunet/29999"
+export LIBERO_CHECKPOINT="$CHECKPOINT_ROOT/pi05_libero__actionunet/libero_actionunet/40000"
 
 test -f "$LIBERO_CHECKPOINT/model.safetensors"
 test -f "$LIBERO_CHECKPOINT/metadata.pt"
@@ -415,87 +415,91 @@ printf 'n\n' | LIBERO_CONFIG_PATH="$LIBERO_PLUS_ROOT/.libero" \
   "$LIBERO_PLUS_VENV/bin/python" -c 'import libero.libero'
 ```
 
-### 7.3 Start the ActionUNet server
+### 7.3 How the parallel evaluator works
 
-In terminal A:
+Use `examples/libero/run_parallel_eval.sh` instead of starting a single server and worker manually. For every GPU in `--gpus`, the launcher:
 
-```bash
-cd "$ACTIONUNET_ROOT"
-export LIBERO_CHECKPOINT="$CHECKPOINT_ROOT/pi05_libero__actionunet/libero_actionunet/29999"
+1. starts one ActionUNet policy server on its own port;
+2. waits for that server's `/healthz` endpoint;
+3. starts one simulator worker on the same GPU;
+4. lets all workers atomically claim episodes from one SQLite WAL queue;
+5. stops all policy servers and writes `summary.tsv` after the queue finishes.
 
-uv run python -m actionunet.serve \
-  --base-config pi05_libero \
-  --checkpoint "$LIBERO_CHECKPOINT" \
-  --device cuda:0 \
-  --num-steps 10 \
-  --host 127.0.0.1 \
-  --port 8000
-```
+The queue is resumable. If evaluation is interrupted, run the same command again. Completed episodes remain complete, while stale `running` episodes are returned to `pending`. Jobs that failed with an error are kept for inspection; after fixing the cause, add `--retry-errors` to retry them.
 
-Leave terminal A running. Run the evaluation commands in terminal B.
+The examples below use eight GPUs. To use four GPUs, change `--gpus 0,1,2,3,4,5,6,7` to `--gpus 0,1,2,3`. The launcher automatically assigns one server/worker pair to each listed GPU.
 
-### 7.4 Evaluate standard LIBERO
+### 7.4 Run parallel standard LIBERO evaluation
+
+One command starts all eight policy servers and all eight simulator workers:
 
 ```bash
 cd "$ACTIONUNET_ROOT"
-mkdir -p eval/libero
+export LIBERO_CHECKPOINT="$CHECKPOINT_ROOT/pi05_libero__actionunet/libero_actionunet/40000"
 
-"$LIBERO_VENV/bin/python" examples/libero/eval_queue.py init \
-  --db eval/libero/jobs.sqlite3 \
+bash examples/libero/run_parallel_eval.sh \
   --benchmark libero \
+  --checkpoint "$LIBERO_CHECKPOINT" \
+  --gpus 0,1,2,3,4,5,6,7 \
+  --sim-python "$LIBERO_VENV/bin/python" \
+  --libero-config-path "$LIBERO_ROOT/.libero" \
+  --output-dir "$ACTIONUNET_ROOT/eval/libero" \
+  --base-port 8000 \
   --seed 7
-
-NO_COLOR=1 \
-TQDM_DISABLE=1 \
-MUJOCO_GL=egl \
-LIBERO_CONFIG_PATH="$LIBERO_ROOT/.libero" \
-"$LIBERO_VENV/bin/python" examples/libero/main.py \
-  --args.host 127.0.0.1 \
-  --args.port 8000 \
-  --args.job-db eval/libero/jobs.sqlite3 \
-  --args.worker-id worker-0 \
-  --args.no-save-videos \
-  --args.seed 7
-
-"$LIBERO_VENV/bin/python" examples/libero/eval_queue.py summary \
-  --db eval/libero/jobs.sqlite3 \
-  --output eval/libero/summary.tsv
 ```
 
-The final results are written to `eval/libero/summary.tsv`.
+Outputs:
 
-### 7.5 Evaluate LIBERO-Plus
+```text
+eval/libero/jobs.sqlite3   # resumable episode queue
+eval/libero/summary.tsv    # suite and overall success rates
+eval/libero/logs/          # one server log and one worker log per GPU
+```
+
+Check progress from another terminal at any time:
+
+```bash
+"$LIBERO_VENV/bin/python" examples/libero/eval_queue.py progress \
+  --db eval/libero/jobs.sqlite3
+```
+
+### 7.5 Run parallel LIBERO-Plus evaluation
+
+LIBERO-Plus uses the same trained LIBERO checkpoint, but its own simulator environment and classification file:
 
 ```bash
 cd "$ACTIONUNET_ROOT"
-mkdir -p eval/libero-plus
+export LIBERO_CHECKPOINT="$CHECKPOINT_ROOT/pi05_libero__actionunet/libero_actionunet/40000"
+export LIBERO_PLUS_CLASSIFICATION="$LIBERO_PLUS_ROOT/libero/libero/benchmark/task_classification.json"
 
-export LIBERO_EVAL_CATEGORY_CLASSIFICATION="$LIBERO_PLUS_ROOT/libero/libero/benchmark/task_classification.json"
-
-"$LIBERO_PLUS_VENV/bin/python" examples/libero/eval_queue.py init \
-  --db eval/libero-plus/jobs.sqlite3 \
+bash examples/libero/run_parallel_eval.sh \
   --benchmark libero-plus \
+  --checkpoint "$LIBERO_CHECKPOINT" \
+  --gpus 0,1,2,3,4,5,6,7 \
+  --sim-python "$LIBERO_PLUS_VENV/bin/python" \
+  --libero-config-path "$LIBERO_PLUS_ROOT/.libero" \
+  --classification "$LIBERO_PLUS_CLASSIFICATION" \
+  --output-dir "$ACTIONUNET_ROOT/eval/libero-plus" \
+  --base-port 8100 \
   --seed 7
-
-NO_COLOR=1 \
-TQDM_DISABLE=1 \
-MUJOCO_GL=egl \
-LIBERO_CONFIG_PATH="$LIBERO_PLUS_ROOT/.libero" \
-LIBERO_EVAL_CATEGORY_CLASSIFICATION="$LIBERO_EVAL_CATEGORY_CLASSIFICATION" \
-"$LIBERO_PLUS_VENV/bin/python" examples/libero/main.py \
-  --args.host 127.0.0.1 \
-  --args.port 8000 \
-  --args.job-db eval/libero-plus/jobs.sqlite3 \
-  --args.worker-id worker-0 \
-  --args.no-save-videos \
-  --args.seed 7
-
-"$LIBERO_PLUS_VENV/bin/python" examples/libero/eval_queue.py summary \
-  --db eval/libero-plus/jobs.sqlite3 \
-  --output eval/libero-plus/summary.tsv
 ```
 
-The final results are written to `eval/libero-plus/summary.tsv`. The SQLite queues are resumable: rerunning `init` returns stale `running` jobs to `pending`.
+Outputs:
+
+```text
+eval/libero-plus/jobs.sqlite3
+eval/libero-plus/summary.tsv
+eval/libero-plus/logs/
+```
+
+Check progress from another terminal:
+
+```bash
+"$LIBERO_PLUS_VENV/bin/python" examples/libero/eval_queue.py progress \
+  --db eval/libero-plus/jobs.sqlite3
+```
+
+The launcher exits with a non-zero status if any worker crashes or if any queue entry remains `pending`, `running`, or `error`. An interrupted run resumes with the same command. After fixing an episode-level error, rerun the command with `--retry-errors` to put failed jobs back into the shared queue.
 
 ## Step 8: Evaluate on RoboTwin
 
