@@ -1,10 +1,46 @@
-# ActionUNet: Improving Robustness of VLA Models with Efficient Multi-scale Fine-tuning
+<div align="center">
 
-<p align="center">
-  <strong>Official PyTorch implementation for NeurIPS 2026</strong>
+<h2>ActionUNet: Improving Robustness of VLA Models with<br>Efficient Multi-scale Fine-tuning</h2>
+
+<p>
+  <b>Di Zhu</b><sup>1,*</sup> &middot;
+  <b>Ziheng Yan</b><sup>1,*</sup> &middot;
+  <b>Fang Wan</b><sup>1,&dagger;</sup>
 </p>
 
-ActionUNet fine-tunes a π0.5 vision-language-action model for LIBERO, LIBERO-Plus, and RoboTwin. This README is written as a reproducible, copy-and-run guide. Follow the numbered sections in order.
+<p><sup>1</sup>University of Chinese Academy of Sciences</p>
+
+<p>
+  <sup>*</sup>Equal contribution &middot;
+  <sup>&dagger;</sup>Corresponding Author
+</p>
+
+<p><b>Official PyTorch implementation for NeurIPS 2026</b></p>
+
+<a href="http://arxiv.org/abs/2609.34982"><img src="https://img.shields.io/badge/Paper-arXiv-b31b1b" alt="Paper on arXiv"></a>
+
+</div>
+
+<p align="center">
+  <img src="docs/images/actionunet_overview.png" alt="ActionUNet architecture overview" width="100%">
+</p>
+
+ActionUNet is an efficient multi-scale fine-tuning framework for pretrained vision-language-action models. It refines temporally aligned action features with a lightweight temporal U-Net, then uses a conditional SIREN decoder with explicit smoothness constraints to generate continuous, robust actions. The framework supports both flow-based policies such as π0.5 and regression-based policies such as OpenVLA-OFT.
+
+This README is written as a reproducible, copy-and-run guide for LIBERO, LIBERO-Plus, and RoboTwin. Follow the numbered sections in order.
+
+## Contents
+
+- [Published training settings](#published-training-settings)
+- [Installation](#step-1-clone-and-install-actionunet)
+- [Prepare the base checkpoint](#step-2-prepare-the-π05-base-checkpoint)
+- [Train on LIBERO](#step-4-train-on-libero)
+- [Train on RoboTwin](#step-5-train-on-robotwin)
+- [Start an inference server](#step-6-start-an-inference-server)
+- [Evaluate on LIBERO and LIBERO-Plus](#step-7-evaluate-on-libero-and-libero-plus)
+- [Evaluate on RoboTwin](#step-8-evaluate-on-robotwin)
+- [Common problems](#common-problems)
+- [License](#license)
 
 ## Published training settings
 
